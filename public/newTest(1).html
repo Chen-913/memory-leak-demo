@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+    <link href="https://api.mapbox.com/mapbox-gl-js/v2.10.0/mapbox-gl.css" rel="stylesheet">
+    <script src="https://api.mapbox.com/mapbox-gl-js/v2.10.0/mapbox-gl.js"></script>
+    <style>
+        #map {
+            width: 100vw;
+            height: 100vh;
+            background-color: red;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+        }
+
+        .btn {
+            cursor: pointer;
+            position: absolute;
+            z-index: 1;
+            left: 20px;
+            background-color: #fff;
+            border-radius: 5px;
+            padding: 5px 10px;
+            font-size: 12px;
+        }
+
+        #btn1 {
+            top: 20px;
+        }
+
+        #btn2 {
+            top: 60px;
+        }
+    </style>
+</head>
+
+<body>
+    <div id='map'></div>
+    <script>
+        mapboxgl.accessToken = 'pk.eyJ1IjoiYm9lcmljIiwiYSI6IkZEU3BSTjQifQ.XDXwKy2vBdzFEjndnE4N7Q';
+        const center = [113.91583, 22.5378]
+        const zoom = 14
+        const pitch = 0
+        let map = new mapboxgl.Map({
+            container: 'map',
+            style: 'mapbox://styles/mapbox/dark-v10',
+            zoom: zoom,
+            center: center,
+            pitch: pitch,
+            hash: true,
+            projection: "globe",
+        });
+        map.on("load", () => {
+            fetch('./data/index.json').then(res => res.json()).then(features => {
+                let count = 1
+                let step = 1
+                let timer = null
+                let center = [0, 0]
+                const id1 = 'point-source-1-'
+                const id2 = 'point-source-2-'
+                const add = (id, features) => {
+                    console.log('add:',id)
+                    !map.getSource(id) && map.addSource(id, {
+                        type: 'geojson',
+                        data: {
+                            type: "FeatureCollection",
+                            features: features
+                        }
+                    });
+
+                    !map.getLayer(id) && map.addLayer({
+                        id: id,
+                        type: 'line',
+                        source: id,
+                        paint: {
+                            'line-color': 'red'
+                        }
+                    });
+                }
+                const del = (id) => {
+                    console.log('del:',id)
+                    map.getLayer(id) && map.removeLayer(id)
+                    map.getSource(id) && map.getSource(id).setData({
+                        type: "FeatureCollection",
+                        features: []
+                    })
+                    map.getSource(id) && map.removeSource(id)
+                }
+
+                const render = () => {
+                    new Array(10).fill(true).forEach((_key, index) => {
+                        const newFeatures = features.map((item) => {
+                            const coordinates = item.geometry.coordinates.map((point) => {
+                                return [point[0] + count * 0.00001, point[1]]
+                            })
+                            return {
+                                type: "Feature",
+                                geometry: {
+                                    type: "LineString",
+                                    coordinates
+                                }
+                            }
+                        })
+                        let currentId
+                        if (map.getSource(id1 + index)) {
+                            currentId = id1 + index
+                        } else if (map.getSource(id2 + index)) {
+                            currentId = id2 + index
+                        } else {
+                            currentId = id1 + index
+                            add(currentId, newFeatures)
+                        }
+                        if (count === 50) {
+                            step = -1;
+                            del(currentId)
+                            add(id2 + index, newFeatures)
+                        } else if (count === 0) {
+                            step = 1;
+                            del(currentId)
+                            add(id1 + index, newFeatures)
+                        } else {
+                            // console.log('update:',currentId)
+                            const source = map.getSource(currentId)
+                            source._loaded && source.setData({
+                                type: "FeatureCollection",
+                                features: newFeatures
+                            })
+                        }
+                    })
+                    count += step
+                    timer = setTimeout(() => {
+                        render()
+                    }, 20)
+                }
+                render()
+                // setTimeout(() => {
+                //     console.log('清除')
+                //     window.clearTimeout(timer)
+                //     new Array(5).fill(true).forEach((e, i) => {
+                //         del(id1 + i)
+                //         del(id2 + i)
+                //     })
+                //     // map.remove()
+                //     // map.null
+                // }, 1000 * 60);
+            })
+        })
+    </script>
+</body>
+
+</html>

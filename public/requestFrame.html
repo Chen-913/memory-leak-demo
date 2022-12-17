@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+    <link href="https://api.mapbox.com/mapbox-gl-js/v2.10.0/mapbox-gl.css" rel="stylesheet">
+    <script src="https://api.mapbox.com/mapbox-gl-js/v2.10.0/mapbox-gl.js"></script>
+    <style>
+        #map {
+            width: 100vw;
+            height: 100vh;
+            background-color: red;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+        }
+
+        .btn {
+            cursor: pointer;
+            position: absolute;
+            z-index: 1;
+            left: 20px;
+            background-color: #fff;
+            border-radius: 5px;
+            padding: 5px 10px;
+            font-size: 12px;
+        }
+
+        #btn1 {
+            top: 20px;
+        }
+
+        #btn2 {
+            top: 60px;
+        }
+    </style>
+</head>
+
+<body>
+    <div id='map'></div>
+    <div id="btn1" class="btn">动画开关</div>
+    <div id="btn2" class="btn">聚焦开关</div>
+    <script>
+        mapboxgl.accessToken = 'pk.eyJ1IjoiYm9lcmljIiwiYSI6IkZEU3BSTjQifQ.XDXwKy2vBdzFEjndnE4N7Q';
+        const map = new mapboxgl.Map({
+            container: 'map',
+            style: 'mapbox://styles/mapbox/dark-v10',
+            zoom: 13,
+            center: [113.91306, 22.531212],
+            hash: true
+        });
+        map.on("load", () => {
+            map.addSource('point-source', {
+                type: 'geojson',
+                data: {
+                    type: "FeatureCollection",
+                    features: []
+                }
+            });
+
+            map.addLayer({
+                id: 'point-layer',
+                type: 'line',
+                source: 'point-source',
+                paint: {
+                    'line-color': 'red'
+                }
+            });
+            fetch('./data/index.json').then(res => res.json()).then(features => {
+                let index = 1
+                let center = [0, 0]
+                let step = 1
+                let timer = null
+                let focus = false
+                const render = () => {
+                    map.getSource('point-source').setData({
+                        type: "FeatureCollection",
+                        features: features.map((item) => {
+                            const coordinates = item.geometry.coordinates.map((point, i) => {
+                                if (i === 0) center = [point[0] + index * 0.00001, point[1]]
+                                return [point[0] + index * 0.00001, point[1]]
+                            })
+                            return {
+                                type: "Feature",
+                                geometry: {
+                                    type: "LineString",
+                                    coordinates
+                                }
+                            }
+                        })
+                    })
+                    if (focus) map.setCenter(center)
+                    if (index >= 100) {
+                        step = -1;
+                        // console.log(index, step)
+                    } else if (index <= -1) {
+                        step = 1;
+                        // console.log(index, step)
+                    }
+                    index += step
+                    timer = window.requestAnimationFrame(render)
+                }
+                document.getElementById('btn1').addEventListener('click', () => {
+                    if (timer) {
+                        window.cancelAnimationFrame(timer)
+                        timer = null
+                    } else {
+                        timer = window.requestAnimationFrame(render)
+                    }
+                })
+                document.getElementById('btn2').addEventListener('click', () => {
+                    focus = !focus
+                })
+            })
+        })
+    </script>
+</body>
+
+</html>
